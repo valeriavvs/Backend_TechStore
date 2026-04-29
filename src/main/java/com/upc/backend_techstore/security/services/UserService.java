@@ -5,6 +5,7 @@ import com.upc.backend_techstore.security.entities.Role;
 import com.upc.backend_techstore.security.entities.User;
 import com.upc.backend_techstore.security.repositories.RoleRepository;
 import com.upc.backend_techstore.security.repositories.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
+
+@Slf4j
 
 @Service
 public class UserService {
@@ -58,7 +61,7 @@ public class UserService {
     }
 
     @Transactional
-    public void upsertUserByEmail(String oldEmail, String newEmail, String rawOrEncodedPassword, String roleName) {
+    public User upsertUserByEmail(String oldEmail, String newEmail, String rawOrEncodedPassword, String roleName) {
         if (newEmail == null || newEmail.isBlank()) {
             throw new IllegalArgumentException("El email es obligatorio para sincronizar seguridad");
         }
@@ -66,22 +69,31 @@ public class UserService {
         String oldUsername = oldEmail == null ? null : oldEmail.trim();
         String newUsername = newEmail.trim();
 
+        log.debug("Intentando sincronizar usuario - oldEmail: {}, newEmail: {}, roleName: {}", oldUsername, newUsername, roleName);
+
         User user = userRepository.findByUsername(newUsername)
                 .orElseGet(() -> oldUsername == null ? null : userRepository.findByUsername(oldUsername).orElse(null));
 
         if (user == null) {
+            log.info("Creando nuevo usuario de seguridad para: {}", newUsername);
             user = new User();
+        } else {
+            log.info("Actualizando usuario de seguridad existente: {}", newUsername);
         }
 
         user.setUsername(newUsername);
         if (rawOrEncodedPassword != null && !rawOrEncodedPassword.isBlank()) {
             user.setPassword(encodeIfNeeded(rawOrEncodedPassword));
+            log.debug("Contraseña sincronizada para usuario: {}", newUsername);
         }
 
-        applySingleRole(user, roleName);
+        user = applySingleRole(user, roleName);
+        
+        log.info("Usuario de seguridad sincronizado exitosamente: {} con rol: {}", newUsername, roleName);
+        return user;
     }
 
-    private void applySingleRole(User user, String roleName) {
+    private User applySingleRole(User user, String roleName) {
         if (roleName == null || roleName.isBlank()) {
             throw new IllegalArgumentException("El rol es obligatorio");
         }
@@ -89,13 +101,29 @@ public class UserService {
         String normalizedRole = normalizeRoleName(roleName);
         String cleanedRole = roleName.trim().toUpperCase();
 
+        log.debug("Buscando rol - normalizedRole: {}, cleanedRole: {}", normalizedRole, cleanedRole);
+
         Role role = roleRepository.findByName(normalizedRole)
-                .or(() -> roleRepository.findByName(cleanedRole))
-                .orElseThrow(() -> new NoSuchElementException("Rol no encontrado en security: " + normalizedRole));
+                .or(() -> {
+                    log.debug("Rol {} no encontrado, intentando con {}", normalizedRole, cleanedRole);
+                    return roleRepository.findByName(cleanedRole);
+                })
+                .orElseThrow(() -> {
+                    log.error("Rol no encontrado en security. Buscaba: {}. Roles disponibles: {}", 
+                            normalizedRole, roleRepository.findAll());
+                    return new NoSuchElementException("Rol no encontrado en security: " + normalizedRole);
+                });
+
+        log.debug("Rol encontrado: {}", normalizedRole);
 
         // Hibernate necesita una coleccion mutable para gestionar cambios de la relacion many-to-many.
         user.setRoles(new HashSet<>(Set.of(role)));
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        
+        log.debug("Usuario guardado en BD - ID: {}, Username: {}, Roles: {}", 
+                savedUser.getId(), savedUser.getUsername(), savedUser.getRoles());
+        
+        return savedUser;
     }
 
     private String normalizeRoleName(String roleName) {
