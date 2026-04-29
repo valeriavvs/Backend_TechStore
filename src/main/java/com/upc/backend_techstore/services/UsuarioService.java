@@ -7,6 +7,7 @@ import com.upc.backend_techstore.interfaces.IUsuarioService;
 import com.upc.backend_techstore.security.services.UserService;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,6 +28,9 @@ public class UsuarioService implements IUsuarioService {
     @Autowired
     private UserService securityUserService;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     //Listar
     @Override
     public List<UsuarioDto> listar() {
@@ -42,9 +46,16 @@ public class UsuarioService implements IUsuarioService {
         Usuario usuarioEntity = modelMapper.map(usuarioDto, Usuario.class);
         // Seguridad: el rol de alta siempre es USER, aunque el cliente envie otro valor.
         usuarioEntity.setRol(ROLE_USER);
+        
+        // ENCRIPTAR CONTRASEÑA ANTES DE GUARDAR
+        if (usuarioEntity.getPassword() != null && !usuarioEntity.getPassword().isBlank()) {
+            usuarioEntity.setPassword(passwordEncoder.encode(usuarioEntity.getPassword()));
+        }
+        
         Usuario guardado = usuarioRepository.save(usuarioEntity);
 
         try {
+            // Pasar la contraseña ya encriptada al servicio de seguridad
             securityUserService.upsertUserByEmail(null, guardado.getEmail(), guardado.getPassword(), guardado.getRol());
         } catch (Exception e) {
             throw new RuntimeException("No se pudo sincronizar el usuario de seguridad", e);
@@ -66,7 +77,8 @@ public class UsuarioService implements IUsuarioService {
             usuario.setEmail(usuarioDto.getEmail());
         }
         if (usuarioDto.getPassword() != null && !usuarioDto.getPassword().isBlank()) {
-            usuario.setPassword(usuarioDto.getPassword());
+            // ENCRIPTAR CONTRASEÑA ANTES DE GUARDAR
+            usuario.setPassword(passwordEncoder.encode(usuarioDto.getPassword()));
         }
         if (usuarioDto.getRol() != null && !usuarioDto.getRol().isBlank()) {
             usuario.setRol(normalizeRole(usuarioDto.getRol()));

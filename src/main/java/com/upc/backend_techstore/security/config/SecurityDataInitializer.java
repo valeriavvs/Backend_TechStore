@@ -6,6 +6,7 @@ import com.upc.backend_techstore.security.entities.Role;
 import com.upc.backend_techstore.security.entities.User;
 import com.upc.backend_techstore.security.repositories.RoleRepository;
 import com.upc.backend_techstore.security.repositories.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Set;
 
+@Slf4j
 @Configuration
 public class SecurityDataInitializer {
 
@@ -24,6 +26,8 @@ public class SecurityDataInitializer {
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
+            log.info("=== Iniciando sincronización de seguridad y encriptación de contraseñas ===");
+            
             Role roleUser = roleRepository.findByName("ROLE_USER")
                     .orElseGet(() -> {
                         Role role = new Role();
@@ -38,6 +42,16 @@ public class SecurityDataInitializer {
                         return roleRepository.save(role);
                     });
 
+            // PASO 1: Encriptar contraseñas de Usuario que están en texto plano
+            for (Usuario usuario : usuarioRepository.findAll()) {
+                if (usuario.getPassword() != null && !isAlreadyEncoded(usuario.getPassword())) {
+                    log.warn("Detectada contraseña en texto plano para usuario: {}, encriptando...", usuario.getEmail());
+                    usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+                    usuarioRepository.save(usuario);
+                }
+            }
+
+            // PASO 2: Sincronizar tabla de seguridad desde tabla Usuario
             for (Usuario usuario : usuarioRepository.findAll()) {
                 String email = usuario.getEmail();
                 if (email == null || email.isBlank()) {
@@ -52,11 +66,23 @@ public class SecurityDataInitializer {
                 if (userRepository.findByUsername(email).isEmpty()) {
                     User user = new User();
                     user.setUsername(email.trim());
-                    user.setPassword(passwordEncoder.encode(usuario.getPassword()));
+                    user.setPassword(usuario.getPassword());  // Ya está encriptada
                     user.setRoles(Set.of(selectedRole));
                     userRepository.save(user);
+                    log.info("Usuario de seguridad creado para: {}", email);
                 }
             }
+            log.info("=== Sincronización de seguridad completada ===");
         };
+    }
+
+    /**
+     * Verifica si una contraseña ya está encriptada con BCrypt
+     */
+    private boolean isAlreadyEncoded(String password) {
+        return password != null && 
+               (password.startsWith("$2a$") || 
+                password.startsWith("$2b$") || 
+                password.startsWith("$2y$"));
     }
 }
