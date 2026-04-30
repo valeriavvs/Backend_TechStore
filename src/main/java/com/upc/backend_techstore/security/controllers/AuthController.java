@@ -7,6 +7,7 @@ import com.upc.backend_techstore.security.dtos.AuthResponseDTO;
 import com.upc.backend_techstore.security.services.CustomUserDetailsService;
 import com.upc.backend_techstore.security.util.JwtUtil;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -44,6 +45,9 @@ public class AuthController {
     @PostMapping({"/authenticate", "/api/auth/authenticate"})
     public ResponseEntity<AuthResponseDTO> createAuthenticationToken(@RequestBody AuthRequestDTO authRequest) {
         String login = authRequest.getLogin();
+        if (login == null || login.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(login, authRequest.getPassword())
