@@ -2,6 +2,9 @@ package com.upc.backend_techstore.excepciones;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -51,6 +54,14 @@ public class GlobalExceptionHandler {
         log.error("Error occurred", ex);
         ErrorResponse error = new ErrorResponse(HttpStatus.FORBIDDEN.value(), ex.getMessage());
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class, AuthenticationException.class})
+    public ResponseEntity<ErrorResponse> handleAuthenticationExceptions(Exception ex) {
+        log.error("Error occurred", ex);
+        ErrorResponse error = new ErrorResponse(HttpStatus.UNAUTHORIZED.value(),
+                ex.getMessage() != null ? ex.getMessage() : "Credenciales inválidas");
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(InsufficientStockException.class)
