@@ -43,18 +43,15 @@ public class SecurityDataInitializer {
                     });
 
             // PASO 1: Encriptar contraseñas de Usuario que están en texto plano
-            log.info("--- PASO 1: Detectando contraseñas en texto plano ---");
             for (Usuario usuario : usuarioRepository.findAll()) {
                 if (usuario.getPassword() != null && !isAlreadyEncoded(usuario.getPassword())) {
-                    log.warn("⚠️ Detectada contraseña en texto plano para usuario: {}, encriptando...", usuario.getEmail());
+                    log.warn("Detectada contraseña en texto plano para usuario: {}, encriptando...", usuario.getEmail());
                     usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
                     usuarioRepository.save(usuario);
-                    log.info("✅ Contraseña encriptada para: {}", usuario.getEmail());
                 }
             }
 
             // PASO 2: Sincronizar tabla de seguridad desde tabla Usuario
-            log.info("--- PASO 2: Sincronizando usuarios con tabla de seguridad (users) ---");
             for (Usuario usuario : usuarioRepository.findAll()) {
                 String email = usuario.getEmail();
                 if (email == null || email.isBlank()) {
@@ -67,18 +64,15 @@ public class SecurityDataInitializer {
                         : roleUser;
 
                 if (userRepository.findByUsername(email).isEmpty()) {
-                    log.info("Creando usuario de seguridad para: {} con rol: {}", email, selectedRole.getName());
                     User user = new User();
                     user.setUsername(email.trim());
                     user.setPassword(usuario.getPassword());  // Ya está encriptada
                     user.setRoles(Set.of(selectedRole));
-                    User savedUser = userRepository.save(user);
-                    log.info("✅ Usuario de seguridad creado - ID: {}, Username: {}", savedUser.getId(), savedUser.getUsername());
-                } else {
-                    log.debug("Usuario de seguridad ya existe para: {}", email);
+                    userRepository.save(user);
+                    log.info("Usuario de seguridad creado para: {}", email);
                 }
             }
-            log.info("=== ✅ Sincronización de seguridad completada ===");
+            log.info("=== Sincronización de seguridad completada ===");
         };
     }
 
