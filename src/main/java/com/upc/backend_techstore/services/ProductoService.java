@@ -5,7 +5,6 @@ import com.upc.backend_techstore.dto.ProductoDto;
 import com.upc.backend_techstore.entity.Producto;
 import com.upc.backend_techstore.excepciones.InsufficientStockException;
 import com.upc.backend_techstore.interfaces.IProductoService;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
@@ -19,15 +18,12 @@ public class ProductoService implements IProductoService {
     @Autowired
     private ProductoRepository productoRepository;
 
-    @Autowired
-    private ModelMapper modelMapper;
-
     //Listar
     @Override
     public List<ProductoDto> listar() {
         return productoRepository.findAll()
                 .stream()
-                .map(p -> modelMapper.map(p, ProductoDto.class))
+                .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -36,16 +32,16 @@ public class ProductoService implements IProductoService {
     public List<ProductoDto> listarActivos() {
         return productoRepository.findByActivoTrue()
                 .stream()
-                .map(p -> modelMapper.map(p, ProductoDto.class))
+                .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     //INSERTAR
     @Override
     public ProductoDto insertar(ProductoDto productoDto) {
-        Producto productoEntity = modelMapper.map(productoDto, Producto.class);
+        Producto productoEntity = toEntity(productoDto);
         Producto guardado = productoRepository.save(productoEntity);
-        return modelMapper.map(guardado, ProductoDto.class);
+        return toDto(guardado);
     }
 
     //ACTUALIZAR
@@ -67,15 +63,15 @@ public class ProductoService implements IProductoService {
         if (productoDto.getStock() != null) {
             producto.setStock(productoDto.getStock());
         }
-        if (productoDto.getImagen() != null) {
-            producto.setImagen(productoDto.getImagen());
+        if (productoDto.getImagenUrl() != null) {
+            producto.setImagen(productoDto.getImagenUrl());
         }
         if (productoDto.getActivo() != null) {
             producto.setActivo(productoDto.getActivo());
         }
 
         Producto actualizado = productoRepository.save(producto);
-        return modelMapper.map(actualizado, ProductoDto.class);
+        return toDto(actualizado);
     }
 
 
@@ -125,6 +121,29 @@ public class ProductoService implements IProductoService {
 
         producto.setStock(stockActual - cantidad);
 
-        return modelMapper.map(productoRepository.save(producto), ProductoDto.class);
+        return toDto(productoRepository.save(producto));
+    }
+
+    private ProductoDto toDto(Producto producto) {
+        ProductoDto dto = new ProductoDto();
+        dto.setId(producto.getId());
+        dto.setNombre(producto.getNombre());
+        dto.setDescripcion(producto.getDescripcion());
+        dto.setPrecio(producto.getPrecio());
+        dto.setStock(producto.getStock());
+        dto.setImagenUrl(producto.getImagen());
+        dto.setActivo(producto.getActivo());
+        return dto;
+    }
+
+    private Producto toEntity(ProductoDto productoDto) {
+        Producto producto = new Producto();
+        producto.setNombre(productoDto.getNombre());
+        producto.setDescripcion(productoDto.getDescripcion());
+        producto.setPrecio(productoDto.getPrecio());
+        producto.setStock(productoDto.getStock());
+        producto.setImagen(productoDto.getImagenUrl());
+        producto.setActivo(productoDto.getActivo() != null ? productoDto.getActivo() : true);
+        return producto;
     }
 }
