@@ -54,12 +54,25 @@ public class ProductoService implements IProductoService {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new Exception("Producto no encontrado"));
 
-        producto.setNombre(productoDto.getNombre());
-        producto.setDescripcion(productoDto.getDescripcion());
-        producto.setPrecio(productoDto.getPrecio());
-        producto.setStock(productoDto.getStock());
-        producto.setImagen(productoDto.getImagen());
-        producto.setActivo(productoDto.getActivo());
+        // Actualiza campos solo si no son null (evita sobrescribir con null)
+        if (productoDto.getNombre() != null) {
+            producto.setNombre(productoDto.getNombre());
+        }
+        if (productoDto.getDescripcion() != null) {
+            producto.setDescripcion(productoDto.getDescripcion());
+        }
+        if (productoDto.getPrecio() > 0) {
+            producto.setPrecio(productoDto.getPrecio());
+        }
+        if (productoDto.getStock() != null) {
+            producto.setStock(productoDto.getStock());
+        }
+        if (productoDto.getImagen() != null) {
+            producto.setImagen(productoDto.getImagen());
+        }
+        if (productoDto.getActivo() != null) {
+            producto.setActivo(productoDto.getActivo());
+        }
 
         Producto actualizado = productoRepository.save(producto);
         return modelMapper.map(actualizado, ProductoDto.class);
