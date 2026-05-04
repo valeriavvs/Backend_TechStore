@@ -1,10 +1,15 @@
 package com.upc.backend_techstore.security.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.upc.backend_techstore.excepciones.ErrorResponse;
 import com.upc.backend_techstore.security.filters.JwtRequestFilter;
 import com.upc.backend_techstore.security.services.CustomUserDetailsService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -47,9 +52,33 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            ErrorResponse error = new ErrorResponse(
+                                    HttpStatus.UNAUTHORIZED.value(),
+                                    "No autorizado",
+                                    null
+                            );
+                            response.getWriter().write(objectMapper.writeValueAsString(error));
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            ErrorResponse error = new ErrorResponse(
+                                    HttpStatus.FORBIDDEN.value(),
+                                    "Acceso denegado",
+                                    null
+                            );
+                            response.getWriter().write(objectMapper.writeValueAsString(error));
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/authenticate", "/api/auth/authenticate").permitAll()
                         //si cambio de api para el login o register modificar aqui tambien
