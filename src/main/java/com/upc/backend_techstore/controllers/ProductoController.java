@@ -12,9 +12,6 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@CrossOrigin(origins = "http://localhost:4200",
-        allowCredentials = "true",
-        exposedHeaders = "Authorization")
 @RequestMapping("/api")
 
 public class ProductoController {

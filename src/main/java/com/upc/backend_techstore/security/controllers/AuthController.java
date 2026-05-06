@@ -24,9 +24,6 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-//@CrossOrigin(origins = "${ip.frontend}")
-@CrossOrigin(origins = "${ip.frontend}", allowCredentials = "true", exposedHeaders = "Authorization") //para cloud
-//@CrossOrigin(origins = "*", allowedHeaders = "*", exposedHeaders = "Authorization")
 @RestController
 public class AuthController {
 
