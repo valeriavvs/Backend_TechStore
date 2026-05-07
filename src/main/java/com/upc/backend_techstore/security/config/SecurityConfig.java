@@ -103,16 +103,19 @@ public class SecurityConfig {
         List<String> allowedOrigins = new ArrayList<>();
         allowedOrigins.add("http://localhost:4200");  // Desarrollo local
         
-        // Agregar URL del frontend en Render desde variable de entorno
+        // Agregar URL del frontend en Render desde variable de entorno (si está definida)
         String frontendUrl = System.getenv("FRONTEND_URL");
         if (frontendUrl != null && !frontendUrl.isBlank()) {
             allowedOrigins.add(frontendUrl);
         }
+        // Añadir la URL de producción conocida como fallback para evitar problemas si no se configura la variable
+        allowedOrigins.add("https://frontend-techstore.onrender.com");
         
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        // Permitir headers usados por el frontend y Authorization para enviar el JWT
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Authorization", "Access-Control-Allow-Origin"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);  // Cache preflight por 1 hora
 
