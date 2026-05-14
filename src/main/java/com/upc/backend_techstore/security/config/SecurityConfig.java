@@ -82,6 +82,8 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/authenticate", "/api/auth/authenticate").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/google", "/api/auth/google").permitAll()
                         //si cambio de api para el login o register modificar aqui tambien
                         .requestMatchers(HttpMethod.POST, "/api/auth/usuario", "/api/usuario").permitAll()
                         .anyRequest().authenticated()

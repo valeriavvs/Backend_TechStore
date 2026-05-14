@@ -88,7 +88,7 @@ public class UserService {
         }
 
         user = applySingleRole(user, roleName);
-        
+
         log.info("Usuario de seguridad sincronizado exitosamente: {} con rol: {}", newUsername, roleName);
         return user;
     }
@@ -109,7 +109,7 @@ public class UserService {
                     return roleRepository.findByName(cleanedRole);
                 })
                 .orElseThrow(() -> {
-                    log.error("Rol no encontrado en security. Buscaba: {}. Roles disponibles: {}", 
+                    log.error("Rol no encontrado en security. Buscaba: {}. Roles disponibles: {}",
                             normalizedRole, roleRepository.findAll());
                     return new NoSuchElementException("Rol no encontrado en security: " + normalizedRole);
                 });
@@ -119,10 +119,10 @@ public class UserService {
         // Hibernate necesita una coleccion mutable para gestionar cambios de la relacion many-to-many.
         user.setRoles(new HashSet<>(Set.of(role)));
         User savedUser = userRepository.save(user);
-        
-        log.debug("Usuario guardado en BD - ID: {}, Username: {}, Roles: {}", 
+
+        log.debug("Usuario guardado en BD - ID: {}, Username: {}, Roles: {}",
                 savedUser.getId(), savedUser.getUsername(), savedUser.getRoles());
-        
+
         return savedUser;
     }
 

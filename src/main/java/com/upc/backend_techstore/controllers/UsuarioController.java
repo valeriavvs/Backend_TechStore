@@ -13,7 +13,6 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api")
-
 public class UsuarioController {
     @Autowired
     private UsuarioService usuarioService;
@@ -27,9 +26,8 @@ public class UsuarioController {
     }
 
     //Registrar
-    @PostMapping("/auth/usuario")
+    @PostMapping({"/usuario", "/auth/usuario"})
     public ResponseEntity<UsuarioDto> registrarUsuario(@RequestBody UsuarioDto usuario) {
-        log.info("Registrando usuario {}", usuario.getEmail());
         return ResponseEntity.ok(usuarioService.insertar(usuario));
     }
 

@@ -27,7 +27,7 @@ public class SecurityDataInitializer {
     ) {
         return args -> {
             log.info("=== Iniciando sincronización de seguridad y encriptación de contraseñas ===");
-            
+
             Role roleUser = roleRepository.findByName("ROLE_USER")
                     .orElseGet(() -> {
                         Role role = new Role();
@@ -80,9 +80,9 @@ public class SecurityDataInitializer {
      * Verifica si una contraseña ya está encriptada con BCrypt
      */
     private boolean isAlreadyEncoded(String password) {
-        return password != null && 
-               (password.startsWith("$2a$") || 
-                password.startsWith("$2b$") || 
+        return password != null &&
+               (password.startsWith("$2a$") ||
+                password.startsWith("$2b$") ||
                 password.startsWith("$2y$"));
     }
 }

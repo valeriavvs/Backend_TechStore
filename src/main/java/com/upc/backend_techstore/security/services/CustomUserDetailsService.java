@@ -27,10 +27,10 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         log.debug("Buscando usuario en tabla users con username: {}", username);
-        
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> {
-                    log.error("❌ Usuario NO encontrado en tabla users para username: {}. Usuarios disponibles: {}", 
+                    log.error("❌ Usuario NO encontrado en tabla users para username: {}. Usuarios disponibles: {}",
                             username, userRepository.findAll().stream().map(User::getUsername).collect(Collectors.toList()));
                     return new UsernameNotFoundException("Usuario no encontrado en tabla users: " + username);
                 });
@@ -53,7 +53,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .password(user.getPassword())
                 .authorities(authorities)
                 .build();
-        
+
         log.debug("UserDetails construido exitosamente para: {}", username);
         return userDetails;
     }

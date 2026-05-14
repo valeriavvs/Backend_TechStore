@@ -18,5 +18,7 @@ public class ProductoDto implements Serializable {
     private double precio;
     private Integer stock;
     private String imagenUrl;
+
+
     private Boolean activo;
 }

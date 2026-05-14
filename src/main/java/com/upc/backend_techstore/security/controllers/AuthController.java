@@ -4,7 +4,9 @@ import com.upc.backend_techstore.Repository.UsuarioRepository;
 import com.upc.backend_techstore.entity.Usuario;
 import com.upc.backend_techstore.security.dtos.AuthRequestDTO;
 import com.upc.backend_techstore.security.dtos.AuthResponseDTO;
+import com.upc.backend_techstore.security.dtos.GoogleAuthRequestDTO;
 import com.upc.backend_techstore.security.services.CustomUserDetailsService;
+import com.upc.backend_techstore.security.services.GoogleAuthService;
 import com.upc.backend_techstore.security.util.JwtUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,7 +16,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,12 +32,18 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
     private final UsuarioRepository usuarioRepository;
+    private final GoogleAuthService googleAuthService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, CustomUserDetailsService userDetailsService, UsuarioRepository usuarioRepository) {
+    public AuthController(AuthenticationManager authenticationManager,
+                          JwtUtil jwtUtil,
+                          CustomUserDetailsService userDetailsService,
+                          UsuarioRepository usuarioRepository,
+                          GoogleAuthService googleAuthService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.usuarioRepository = usuarioRepository;
+        this.googleAuthService = googleAuthService;
     }
 
     @PostMapping({"/authenticate", "/api/auth/authenticate"})
@@ -63,6 +70,11 @@ public class AuthController {
         responseHeaders.set("Authorization", token);
         authResponseDTO.setRoles(roles);
         return ResponseEntity.ok().headers(responseHeaders).body(authResponseDTO);
+    }
+
+    @PostMapping({"/google", "/api/auth/google"})
+    public ResponseEntity<AuthResponseDTO> googleLogin(@RequestBody GoogleAuthRequestDTO request) {
+        return ResponseEntity.ok(googleAuthService.authenticateWithGoogle(request.getIdToken()));
     }
 
     @GetMapping("/api/auth/me")

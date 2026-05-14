@@ -5,7 +5,6 @@ public class AuthRequestDTO {
     private String username;
     private String email;
     private String password;
-    // getters and setters
 
     public String getLogin() {
         if (login != null && !login.isBlank()) {
@@ -47,5 +46,4 @@ public class AuthRequestDTO {
     public void setPassword(String password) {
         this.password = password;
     }
-
 }
