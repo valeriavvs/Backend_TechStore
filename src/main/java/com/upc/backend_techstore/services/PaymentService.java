@@ -42,14 +42,17 @@ public class PaymentService {
 
         String tokenPrefix = tokenPrefix(request.getToken());
         String email = request.getPayer() != null ? request.getPayer().getEmail() : null;
-        log.info("Procesando pago con Mercado Pago. email={}, amount={}, installments={}, method={}, tokenPrefix={}",
+        log.info("Procesando pago con Mercado Pago. email={}, amount={}, installments={}, method={}, issuer={}, tokenPrefix={}",
                 email,
                 request.getTransactionAmount(),
                 request.getInstallments(),
                 request.getPaymentMethodId(),
+                request.getIssuerId(),
                 tokenPrefix);
 
         try {
+            log.debug("Construyendo request para Mercado Pago. Validación previa completada. Token válido: {}", hasText(request.getToken()));
+            
             var builder = PaymentCreateRequest.builder()
                     .transactionAmount(request.getTransactionAmount())
                     .token(request.getToken())
@@ -64,18 +67,26 @@ public class PaymentService {
                 builder.issuerId(request.getIssuerId());
             }
 
+            log.debug("Enviando request a API Mercado Pago...");
             Payment payment = paymentClient.create(builder.build());
             log.info("Pago creado en Mercado Pago. id={}, status={}, statusDetail={}, metodo={}",
                     payment.getId(), payment.getStatus(), payment.getStatusDetail(), payment.getPaymentMethodId());
             return mapToResponse(payment);
         } catch (Exception ex) {
-            log.error("Error procesando pago con Mercado Pago. email={}, amount={}, method={}, tokenPrefix={}, error={}",
+            String exceptionType = ex.getClass().getSimpleName();
+            String exceptionMessage = ex.getMessage() != null ? ex.getMessage() : "Sin mensaje de error";
+            log.error("❌ ERROR procesando pago. email={}, amount={}, method={}, issuer={}, tokenPrefix={}, exceptionType={}, error={}",
                     email,
                     request.getTransactionAmount(),
                     request.getPaymentMethodId(),
+                    request.getIssuerId(),
                     tokenPrefix,
-                    ex.getMessage(), ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "No se pudo procesar el pago con Mercado Pago");
+                    exceptionType,
+                    exceptionMessage, ex);
+            
+            // Intentar extraer información útil del error
+            String respuestaAlUsuario = extraerMensajeError(exceptionMessage, exceptionType);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, respuestaAlUsuario);
         }
     }
 
@@ -134,6 +145,47 @@ public class PaymentService {
         }
         int end = Math.min(10, token.length());
         return token.substring(0, end);
+    }
+
+    /**
+     * Intenta extraer un mensaje de error significativo de la excepción.
+     * Mapea errores comunes de Mercado Pago a mensajes útiles sin exponer datos sensibles.
+     */
+    private String extraerMensajeError(String exceptionMessage, String exceptionType) {
+        if (exceptionMessage == null) {
+            exceptionMessage = "";
+        }
+        
+        // Errores comunes de validación
+        if (exceptionMessage.toLowerCase().contains("invalid token")) {
+            return "El token de la tarjeta es inválido o expiró";
+        }
+        if (exceptionMessage.toLowerCase().contains("invalid payer")) {
+            return "Los datos del pagador (email) son inválidos";
+        }
+        if (exceptionMessage.toLowerCase().contains("invalid payment method")) {
+            return "El método de pago no es válido";
+        }
+        if (exceptionMessage.toLowerCase().contains("insufficient")) {
+            return "Fondos insuficientes";
+        }
+        if (exceptionMessage.toLowerCase().contains("card declined")) {
+            return "La tarjeta fue rechazada";
+        }
+        if (exceptionMessage.toLowerCase().contains("unauthorized") || 
+            exceptionMessage.toLowerCase().contains("invalid credentials") ||
+            exceptionMessage.toLowerCase().contains("access denied")) {
+            return "Error de autenticación con Mercado Pago (credenciales inválidas o expiradas)";
+        }
+        if (exceptionMessage.toLowerCase().contains("timeout")) {
+            return "Timeout: Mercado Pago tardó demasiado en responder. Intenta nuevamente.";
+        }
+        if (exceptionMessage.toLowerCase().contains("connection")) {
+            return "Error de conexión con Mercado Pago. Intenta nuevamente.";
+        }
+        
+        // Si no coincide con ningún patrón conocido
+        return "No se pudo procesar el pago con Mercado Pago. Intenta nuevamente o contacta a soporte.";
     }
 }
 

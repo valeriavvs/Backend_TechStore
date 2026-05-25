@@ -34,7 +34,18 @@ public class CheckoutService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El carritoId es obligatorio");
         }
 
-        log.info("Iniciando checkout. carritoId={}, email={}", request.getCarritoId(), emailAutenticado);
+        // Loguear información de la solicitud (sin exponer datos sensibles)
+        String tokenPrefix = request.getToken() != null ? 
+            request.getToken().substring(0, Math.min(10, request.getToken().length())) : "";
+        
+        log.info("Iniciando checkout. carritoId={}, email={}, method={}, issuer={}, tokenPrefix={}, amount={}, installments={}",
+                request.getCarritoId(),
+                emailAutenticado,
+                request.getPaymentMethodId(),
+                request.getIssuerId(),
+                tokenPrefix,
+                request.getTransactionAmount(),
+                request.getInstallments());
 
         // Convertir CheckoutRequestDto a PaymentRequestDto
         PaymentRequestDto paymentRequest = new PaymentRequestDto();
@@ -55,7 +66,10 @@ public class CheckoutService {
 
         // Solo crear pedido si el pago fue approved
         if (!"approved".equalsIgnoreCase(paymentResponse.getStatus())) {
-            log.warn("Pago no aprobado. status={}, carritoId={}", paymentResponse.getStatus(), request.getCarritoId());
+            log.warn("Pago no aprobado. status={}, statusDetail={}, carritoId={}", 
+                    paymentResponse.getStatus(), 
+                    paymentResponse.getStatusDetail(), 
+                    request.getCarritoId());
             throw new ResponseStatusException(
                     HttpStatus.PAYMENT_REQUIRED,
                     "Pago rechazado o pendiente. Status: " + paymentResponse.getStatus() + 
@@ -70,7 +84,7 @@ public class CheckoutService {
             log.info("Pedido creado exitosamente. pedidoId={}, carritoId={}", pedidoDto.getId(), request.getCarritoId());
         } catch (Exception ex) {
             log.error("⚠️ INCIDENCIA CRÍTICA: Pago aprobado en Mercado Pago (ID: {}), pero FALLO la creación del pedido. carritoId={}, error={}, email={}. REVISIÓN MANUAL REQUERIDA.",
-                    paymentResponse.getIdPago(), request.getCarritoId(), ex.getMessage(), emailAutenticado);
+                    paymentResponse.getIdPago(), request.getCarritoId(), ex.getMessage(), emailAutenticado, ex);
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "El pago fue aprobado en Mercado Pago, pero hubo un error al crear el pedido. Por favor contacta a soporte. ID de pago: " + paymentResponse.getIdPago()
@@ -100,7 +114,7 @@ public class CheckoutService {
      * pero nuestra BD hace rollback del pedido.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    private PaymentResponseDto procesarPagoEnTransaccionAislada(PaymentRequestDto paymentRequest, Long carritoId) {
+    protected PaymentResponseDto procesarPagoEnTransaccionAislada(PaymentRequestDto paymentRequest, Long carritoId) {
         try {
             PaymentResponseDto paymentResponse = paymentService.processCardPayment(paymentRequest);
             log.info("Pago procesado en transacción aislada. status={}, carritoId={}, paymentId={}", 
