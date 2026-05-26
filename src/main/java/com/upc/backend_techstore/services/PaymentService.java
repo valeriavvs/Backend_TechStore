@@ -8,6 +8,10 @@ import com.mercadopago.resources.payment.Payment;
 import com.upc.backend_techstore.dto.PaymentRequestDto;
 import com.upc.backend_techstore.dto.PaymentResponseDto;
 import lombok.extern.slf4j.Slf4j;
+import com.mercadopago.exceptions.MPApiException;
+import java.lang.reflect.Method;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -72,6 +76,61 @@ public class PaymentService {
             log.info("Pago creado en Mercado Pago. id={}, status={}, statusDetail={}, metodo={}",
                     payment.getId(), payment.getStatus(), payment.getStatusDetail(), payment.getPaymentMethodId());
             return mapToResponse(payment);
+        } catch (MPApiException mpEx) {
+            // Intentar extraer información específica de la API de Mercado Pago
+            String statusCode = "-";
+            String responseBody = "";
+            String requestId = "";
+            try {
+                Method mStatus = mpEx.getClass().getMethod("getStatusCode");
+                Object s = mStatus.invoke(mpEx);
+                statusCode = s != null ? String.valueOf(s) : "-";
+            } catch (Exception ignore) {
+                // método no disponible
+            }
+            try {
+                // intentos comunes para obtener el body de la respuesta
+                Method mBody = null;
+                try { mBody = mpEx.getClass().getMethod("getResponseBody"); } catch (Exception e) { }
+                if (mBody == null) {
+                    try { mBody = mpEx.getClass().getMethod("getApiResponse"); } catch (Exception e) { }
+                }
+                if (mBody == null) {
+                    try { mBody = mpEx.getClass().getMethod("getResponse"); } catch (Exception e) { }
+                }
+                if (mBody != null) {
+                    Object body = mBody.invoke(mpEx);
+                    responseBody = body != null ? String.valueOf(body) : "";
+                }
+            } catch (Exception ignore) {
+                // no pudo extraer body
+            }
+
+            // intentar extraer request_id desde el body (si es JSON)
+            if (responseBody != null && !responseBody.isEmpty()) {
+                try {
+                    Pattern p = Pattern.compile("\"request_id\"\\s*:\\s*\"([^\"]+)\"");
+                    Matcher m = p.matcher(responseBody);
+                    if (m.find()) {
+                        requestId = m.group(1);
+                    }
+                } catch (Exception ignore) { }
+            }
+
+            String mpMessage = mpEx.getMessage() != null ? mpEx.getMessage() : "Sin mensaje de Mercado Pago";
+            log.error("MercadoPago API error | status={} | request_id={} | body={} | message={} | method={} | issuer={} | amount={} | email={} | tokenPrefix={}",
+                    statusCode,
+                    requestId,
+                    responseBody,
+                    mpMessage,
+                    request.getPaymentMethodId(),
+                    request.getIssuerId(),
+                    request.getTransactionAmount(),
+                    email,
+                    tokenPrefix);
+
+            String respuestaAlUsuario = extraerMensajeError(responseBody != null && !responseBody.isEmpty() ? responseBody : mpMessage, mpEx.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, respuestaAlUsuario);
         } catch (Exception ex) {
             String exceptionType = ex.getClass().getSimpleName();
             String exceptionMessage = ex.getMessage() != null ? ex.getMessage() : "Sin mensaje de error";
